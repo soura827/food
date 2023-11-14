@@ -1,19 +1,12 @@
 trigger:
 - main  # Set the branch you want to trigger the pipeline on
 
-pool:
-  vmImage: 'Amazonlinux-latest'  # You can choose a different agent based on your requirements
-
 jobs:
-- job: Build
-  displayName: 'Build Job'
+- job: YourJob
+  pool:
+    vmImage: 'Amazonlinux-latest'
   steps:
-  - script: |
-      # Set up your build steps here
-      # For example, restoring dependencies and building the project
-      dotnet restore
-      dotnet build --configuration Release
-    displayName: 'Build'
+    # your steps here
 
 - job: Test
   displayName: 'Test Job'
