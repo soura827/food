@@ -1,19 +1,36 @@
-# Starter pipeline
-# Start with a minimal pipeline that you can customize to build and deploy your code.
-# Add steps that build, run tests, deploy, and more:
-# https://aka.ms/yaml
-
 trigger:
-- master
+- main  # Set the branch you want to trigger the pipeline on
 
 pool:
-  vmImage: ubuntu-latest
+  vmImage: 'windows-latest'  # You can choose a different agent based on your requirements
 
-steps:
-- script: 
-  displayName: 'Run a one-line script'
+jobs:
+- job: Build
+  displayName: 'Build Job'
+  steps:
+  - script: |
+      # Set up your build steps here
+      # For example, restoring dependencies and building the project
+      dotnet restore
+      dotnet build --configuration Release
+    displayName: 'Build'
 
-- script: |
-    echo Add other tasks to build, test, and deploy your project.
-    echo See https://aka.ms/yaml
-  displayName: 'Run a multi-line script'
+- job: Test
+  displayName: 'Test Job'
+  dependsOn: Build
+  steps:
+  - script: |
+      # Set up your test steps here
+      # For example, running unit tests
+      dotnet test --configuration Release
+    displayName: 'Run Tests'
+
+- job: Deploy
+  displayName: 'Deploy Job'
+  dependsOn: Test
+  steps:
+  - script: |
+      # Set up your deployment steps here
+      # For example, deploying to Azure App Service
+      az webapp deployment --name <YourAppName> --resource-group <YourResourceGroup> --src-path '$(Build.ArtifactStagingDirectory)/<PathToYourArtifact>'
+    displayName: 'Deploy to Azure'
