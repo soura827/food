@@ -6,8 +6,7 @@ jobs:
   displayName: 'Build Job'
   pool:
     vmImage: 'Amazonlinux-latest'
-  steps:
-    # your steps here
+
 
 - job: Test
   displayName: 'Test Job'
