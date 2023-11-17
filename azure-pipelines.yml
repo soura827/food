@@ -49,26 +49,29 @@ stages:
             inputs:
               script: /bdk-insite/ranch name/.devops/flutter pub get
 
-          # build the flutter app for web
+# build the flutter app for web
           - task: CmdLine@2
             displayName: 'Build Flutter App'
             inputs:
               script: flutter build web --release
-            
-          # copy the .devops folder to the build directory
+                      
+# copy the .devops folder to the build directory
           - task : PublishPipelineArtifact@1
             displayName: Copy .devops and Publish it as artifact
             condition: always()
             inputs:
               targetPath: '$(Pipeline.Workspace)/s/.devops'
               artifactType: 'pipeline'
-              artifactName: '.devops'
-        - stage: Slack 
-          dependsOn: Build
-          condition: failed()
-          displayName: Push Build Logs to Slack
-          jobs:
-              -template: ../templates/slack.yaml
+              artifactName: '.devops'          
+              
+
+
+- stage: Slack 
+      dependsOn: Build
+      condition: failed()
+      displayName: Push Build Logs to Slack
+   jobs:
+      -template: ../templates/slack.yaml
 
   # This stage will deploy the application to the development environment (as an Azure static website)
   - stage: Deploy
