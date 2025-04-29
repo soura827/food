@@ -1,0 +1,222 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Create full VPC environment with ALB, Launch Template, and Auto Scaling Group
+
+Resources:
+
+  # Create the VPC
+  NewProject1VPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 10.0.0.0/18
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      Tags:
+        - Key: Name
+          Value: NewProject1VPC
+
+  # Create the Internet Gateway
+  NewProject1InternetGateway:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+        - Key: Name
+          Value: NewProject1InternetGateway
+
+  # Attach the Internet Gateway to the VPC
+  AttachGateway:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref NewProject1VPC
+      InternetGatewayId: !Ref NewProject1InternetGateway
+
+  # Create Public Subnet 1
+  PublicSubnet1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref NewProject1VPC
+      CidrBlock: 10.0.0.0/20
+      AvailabilityZone: ap-south-1a
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: PublicSubnet1
+
+  # Create Public Subnet 2
+  PublicSubnet2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref NewProject1VPC
+      CidrBlock: 10.0.16.0/20
+      AvailabilityZone: ap-south-1b
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: PublicSubnet2
+
+  # Create Private Subnet
+  PrivateSubnet:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref NewProject1VPC
+      CidrBlock: 10.0.32.0/20
+      AvailabilityZone: ap-south-1c
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value: PrivateSubnet
+
+  # Create the Public Route Table
+  PublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref NewProject1VPC
+      Tags:
+        - Key: Name
+          Value: PublicRouteTable
+
+  # Create the Private Route Table
+  PrivateRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref NewProject1VPC
+      Tags:
+        - Key: Name
+          Value: PrivateRouteTable
+
+  # Attach Public Subnet 1 to the Public Route Table
+  PublicSubnet1RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PublicSubnet1
+      RouteTableId: !Ref PublicRouteTable
+
+  # Attach Public Subnet 2 to the Public Route Table
+  PublicSubnet2RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PublicSubnet2
+      RouteTableId: !Ref PublicRouteTable
+
+  # Attach Private Subnet to the Private Route Table
+  PrivateSubnetRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PrivateSubnet
+      RouteTableId: !Ref PrivateRouteTable
+
+  # Create Security Group with Inbound Rules
+  NewProject1SecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Allow SSH, HTTP, and MySQL access from anywhere
+      VpcId: !Ref NewProject1VPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 3306
+          ToPort: 3306
+          CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Name
+          Value: NewProject1SecurityGroup
+
+  # Create EC2 Launch Template
+  NewProject1LaunchTemplate:
+    Type: AWS::EC2::LaunchTemplate
+    Properties:
+      LaunchTemplateName: NewProject1LaunchTemplate
+      VersionDescription: "Initial Version"
+      LaunchTemplateData:
+        InstanceType: t2.micro
+        ImageId: ami-0f1dcc636b69a6438  # Replace with valid AMI ID
+        KeyName: cloudfomat  # Replace with your actual key name
+        SecurityGroupIds:
+          - !Ref NewProject1SecurityGroup
+        TagSpecifications:
+          - ResourceType: instance
+            Tags:
+              - Key: Name
+                Value: NewProject1Instance
+
+  # Create Application Load Balancer (ALB)
+  NewProject1ALB:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Name: NewProject1ALB
+      Subnets:
+        - Ref: PublicSubnet1
+        - Ref: PublicSubnet2
+      SecurityGroups:
+        - !Ref NewProject1SecurityGroup
+      Scheme: internet-facing
+      LoadBalancerAttributes:
+        - Key: idle_timeout.timeout_seconds
+          Value: '60'
+      Type: application
+      Tags:
+        - Key: Name
+          Value: NewProject1ALB
+
+  # Create Target Group for ALB
+  NewProject1TargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Name: NewProject1TargetGroup
+      VpcId: !Ref NewProject1VPC
+      Protocol: HTTP
+      Port: 80
+      HealthCheckProtocol: HTTP
+      HealthCheckPort: '80'
+      HealthCheckPath: /
+      Matcher:
+        HttpCode: 200
+      TargetType: instance
+      Tags:
+        - Key: Name
+          Value: NewProject1TargetGroup
+
+  # Create Listener for ALB and associate with Target Group
+  NewProject1Listener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn: !Ref NewProject1TargetGroup
+      LoadBalancerArn: !Ref NewProject1ALB
+      Port: 80
+      Protocol: HTTP
+
+  # Create Auto Scaling Group (ASG)
+  NewProject1ASG:
+    Type: AWS::AutoScaling::AutoScalingGroup
+    Properties:
+      AutoScalingGroupName: NewProject1ASG
+      MinSize: '1'
+      MaxSize: '2'
+      DesiredCapacity: '1'
+      LaunchTemplate:
+        LaunchTemplateId: !Ref NewProject1LaunchTemplate
+        Version: !GetAtt NewProject1LaunchTemplate.LatestVersionNumber
+      VPCZoneIdentifier:
+        - Ref: PublicSubnet1
+        - Ref: PublicSubnet2
+      HealthCheckType: EC2
+      HealthCheckGracePeriod: 300
+      TargetGroupARNs:
+        - Ref: NewProject1TargetGroup
+      Tags:
+        - Key: Name
+          Value: NewProject1ASGInstance
+          PropagateAtLaunch: true
+
+Outputs:
+  LoadBalancerDNSName:
+    Description: "DNS Name of the Load Balancer"
+    Value: !GetAtt NewProject1ALB.DNSName
